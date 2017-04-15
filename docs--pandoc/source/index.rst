@@ -20,8 +20,7 @@ Basic Info
     general/change-log
     general/roadmap
     general/license
-    general/multilangual-setup
-    general/themes
+    documentation/shipping
 
 Guides
 ############
