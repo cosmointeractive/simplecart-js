@@ -14,18 +14,18 @@
 (function (window, document) {
 	/*global HTMLElement */
 
-	var typeof_string			= typeof "",
-		typeof_undefined		= typeof undefined,
-		typeof_function			= typeof function () {},
+	var typeof_string		= typeof "",
+		typeof_undefined	= typeof undefined,
+		typeof_function		= typeof function () {},
 		typeof_object			= typeof {},
-		isTypeOf				= function (item, type) { return typeof item === type; },
-		isString				= function (item) { return isTypeOf(item, typeof_string); },
+		isTypeOf				  = function (item, type) { return typeof item === type; },
+		isString				  = function (item) { return isTypeOf(item, typeof_string); },
 		isUndefined				= function (item) { return isTypeOf(item, typeof_undefined); },
 		isFunction				= function (item) { return isTypeOf(item, typeof_function); },
 
-		isObject				= function (item) { return isTypeOf(item, typeof_object); },
+		isObject				  = function (item) { return isTypeOf(item, typeof_object); },
 		//Returns true if it is a DOM element
-		isElement				= function (o) {
+		isElement				  = function (o) {
 			return typeof HTMLElement === "object" ? o instanceof HTMLElement : typeof o === "object" && o.nodeType === 1 && typeof o.nodeName === "string";
 		},
 
@@ -101,6 +101,7 @@
 						{ attr: "total", label: "SubTotal", view: 'currency' },
 						{ view: "remove", text: "Remove", label: false }
 					],
+          shelfItemSelector: "class",
 
 					excludeFromCheckout	: ['thumb'],
 
@@ -110,7 +111,6 @@
 					shippingCustom		: null,
 
 					taxRate				: 0,
-					
 					taxShipping			: false,
 
 					data				: {}
@@ -699,7 +699,7 @@
 
 				// we use the data object to track values for the item
 				var _data = {},
-					me = this;
+        me        = this;
 
 				// cycle through given attributes and set them to the data object
 				if (isObject(info)) {
@@ -1000,7 +1000,10 @@
 
 				},
 
-
+        /**
+         * Google Checkout
+         *
+         */
 				GoogleCheckout: function (opts) {
 					// account id is required
 					if (!opts.merchantID) {
@@ -1061,7 +1064,10 @@
 
 				},
 
-
+        /**
+         * Amazon Payments
+         *
+         */
 				AmazonPayments: function (opts) {
 					// required options
 					if (!opts.merchant_signature) {
@@ -1769,50 +1775,66 @@
 						, event: 'click'
 						, callback: function () {
 							var $button = simpleCart.$(this),
-								fields = {};
+								  fields  = {},
+                  $product = $button.closest("." + namespace + "_shelfItem");
 
-							$button.closest("." + namespace + "_shelfItem").descendants().each(function (x,item) {
-								var $item = simpleCart.$(item);
+              // Switch between getting item details by using [data] attribute 
+              // or [class] elements
+              if (settings.shelfItemSelector == 'data')
+              {
+                fields['productId']   = $product.attr('data-id');
+                fields['price']       = $product.attr('data-price');
+                fields['name']        = $product.attr('data-title');
+                fields['image']       = $product.attr('data-img');
+                fields['url']         = $product.attr('data-url');
+                fields['description'] = $product.attr('data-desc');
+              } 
+              else 
+              {
+                $product.descendants().each(function (x,item) {
+                  var $item = simpleCart.$(item);
+                  
+                  // check to see if the class matches the item_[fieldname] pattern
+                  if ($item.attr("class") &&
+                    $item.attr("class").match(/item_.+/) &&
+                    !$item.attr('class').match(/item_add/)
+                  ) {
 
-								// check to see if the class matches the item_[fieldname] pattern
-								if ($item.attr("class") &&
-									$item.attr("class").match(/item_.+/) &&
-									!$item.attr('class').match(/item_add/)) {
+                    // find the class name
+                    simpleCart.each($item.attr('class').split(' '), function (klass) {
+                      var attr,
+                        val,
+                        type;
 
-									// find the class name
-									simpleCart.each($item.attr('class').split(' '), function (klass) {
-										var attr,
-											val,
-											type;
+                      // get the value or text depending on the tagName
+                      if (klass.match(/item_.+/)) {
+                        attr = klass.split("_")[1];
+                        val = "";
+                        switch($item.tag().toLowerCase()) {
+                          case "input":
+                          case "textarea":
+                          case "select":
+                            type = $item.attr("type");
+                            if (!type || ((type.toLowerCase() === "checkbox" || type.toLowerCase() === "radio") && $item.attr("checked")) || type.toLowerCase() === "text" || type.toLowerCase() === "number") {
+                              val = $item.val();
+                            }				
+                            break;
+                          case "img":
+                            val = $item.attr('src');
+                            break;
+                          default:
+                            val = $item.text();
+                            break;
+                        }
 
-										// get the value or text depending on the tagName
-										if (klass.match(/item_.+/)) {
-											attr = klass.split("_")[1];
-											val = "";
-											switch($item.tag().toLowerCase()) {
-												case "input":
-												case "textarea":
-												case "select":
-													type = $item.attr("type");
-													if (!type || ((type.toLowerCase() === "checkbox" || type.toLowerCase() === "radio") && $item.attr("checked")) || type.toLowerCase() === "text" || type.toLowerCase() === "number") {
-														val = $item.val();
-													}				
-													break;
-												case "img":
-													val = $item.attr('src');
-													break;
-												default:
-													val = $item.text();
-													break;
-											}
-
-											if (val !== null && val !== "") {
-												fields[attr.toLowerCase()] = fields[attr.toLowerCase()] ? fields[attr.toLowerCase()] + ", " +  val : val;
-											}
-										}
-									});
-								}
-							});
+                        if (val !== null && val !== "") {
+                          fields[attr.toLowerCase()] = fields[attr.toLowerCase()] ? fields[attr.toLowerCase()] + ", " +  val : val;
+                        }
+                      }
+                    });
+                  }
+                });
+              }
 
 							// add the item
 							simpleCart.add(fields);
